@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Event Segmentation</title>
+<style>
+body{margin:0;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+#videoBox{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+video {
+    width: 96%;
+    max-height: 96%;
+    pointer-events: none !important; /* 完全禁用所有鼠标事件 */
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    cursor: default !important;
+}
+#prompt{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:26px;text-align:center}
+#counter{position:fixed;top:20px;right:20px;font-size:24px}
+#help{position:fixed;bottom:20px;left:20px;font-size:14px;color:#ccc}
+#adjustHint{position:fixed;bottom:60px;left:20px;font-size:14px;color:#ccc;display:none}
+#descBox{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#222;padding:20px 30px;border-radius:8px;display:none}
+#descBox input{width:350px;font-size:18px;padding:6px 10px}
+#descBox button{margin-left:10px;padding:6px 12px;font-size:16px}
+</style>
+</head>
+<body>
+<!-- 手动选择器 -->
+<div id="starter" style="position:fixed;top:20px;left:20px;z-index:999;background:#222;padding:10px;border-radius:6px;">
+  <label>Start from video:
+    <select id="startSelect"></select>
+  </label>
+  <button id="startBtn">Start New</button>
+  <button id="continueBtn" style="display:none;">Continue</button>
+  <div style="font-size:12px;color:#ccc;margin-top:5px;">Press any key to start each video.</div>
+</div>
+
+<div id="prompt">Press any key to start video 1 / 10</div>
+<div id="counter">Events: 0</div>
+<div id="videoBox">
+  <video id="v" controls style="display:none;"></video>
+</div>
+<div id="help">Space = pause/unpause&nbsp;&nbsp; ← → = ±1 s&nbsp;&nbsp; Enter = confirm</div>
+<div id="adjustHint">Use ← → keys to adjust time (1s steps), then press ENTER to confirm</div>
+
+<div id="descBox">
+    <label>Short description for event <span id="evNum"></span>:<br>
+        <input id="descInput" type="text" placeholder="e.g. Main character leaves the room">
+    </label>
+    <div style="margin-top: 10px;">
+        <button id="okBtn">Submit Description</button>
+        <button id="cancelBtn" style="margin-left: 10px; background: #666;">Cancel Event</button>
+    </div>
+    <div style="font-size: 12px; color: #999; margin-top: 5px;">
+        Press ESC to cancel or ENTER to submit
+    </div>
+</div>
+
+<script>
+const TOTAL = 10;
+const FRAME_DUR = 1.0;
+const STORAGE_KEY = 'seeg_lastVideo';
+
+/* ====== 序号选择器 + 按钮初始化 ====== */
+const startSelect = document.getElementById('startSelect');
+const startBtn = document.getElementById('startBtn');
+const continueBtn = document.getElementById('continueBtn');
+
+// 生成 1-10 选项
+for(let i = 1; i <= TOTAL; i++){
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = i;
+  startSelect.appendChild(opt);
+}
+
+// 初始值：URL 参数 > 存储 > 1
+const urlParams = new URLSearchParams(location.search);
+let startIdx = parseInt(urlParams.get('start')) || 0;
+if(!startIdx || startIdx < 1 || startIdx > TOTAL) startIdx = parseInt(localStorage.getItem(STORAGE_KEY)) || 1;
+startSelect.value = startIdx;
+
+// 按钮事件
+startBtn.addEventListener('click', () => {
+  startExperiment(parseInt(startSelect.value));
+});
+
+continueBtn.addEventListener('click', () => {
+  startExperiment(parseInt(localStorage.getItem(STORAGE_KEY)) || 1);
+});
+
+// 有断点且非 URL 指定 → 显示「继续」按钮
+if(!urlParams.has('start') && localStorage.getItem(STORAGE_KEY)){
+  continueBtn.style.display = 'inline';
+}
+
+/* ====== 主要变量和函数 ====== */
+let idx = startIdx, events = [], evtCnt = 0, fineTuning = false;
+const v = document.getElementById('v');
+const prompt = document.getElementById('prompt');
+const counter = document.getElementById('counter');
+const descBox = document.getElementById('descBox');
+const descInput = document.getElementById('descInput');
+const evNumSpan = document.getElementById('evNum');
+const adjustHint = document.getElementById('adjustHint');
+
+// 统一的开始函数
+function startExperiment(startIndex) {
+  idx = startIndex;
+  events = []; // 开始新的实验时清空事件数据
+  localStorage.setItem(STORAGE_KEY, idx);
+  document.getElementById('starter').style.display = 'none';
+  loadNext();
+}
+
+function saveProgress(n){ 
+  localStorage.setItem(STORAGE_KEY, n); 
+}
+
+function loadNext(){
+  if(idx > TOTAL){ 
+    finishAll(); 
+    return;
+  }
+  
+  saveProgress(idx);
+  v.src = fileName(idx);
+  v.style.display = 'none';
+  prompt.textContent = `Press any key to start video ${idx} / ${TOTAL}`;
+  prompt.style.display = 'block';
+  evtCnt = 0;
+  counter.textContent = 'Events: 0';
+  fineTuning = false;
+}
+
+function fileName(n){ 
+  return `v${n}.mp4`; 
+}
+
+function pauseAndFineTune(){
+  if(v.paused && fineTuning){
+    fineTuning = false;
+    adjustHint.style.display = 'none';
+    v.play();
+    return;
+  }
+  v.pause();
+  fineTuning = true;
+  adjustHint.style.display = 'block';
+}
+
+function confirmEnd(){
+  fineTuning = false;
+  adjustHint.style.display = 'none';
+  events.push({vid: idx, ev: evtCnt + 1, time: v.currentTime, desc: ''});
+  evtCnt++;
+  counter.textContent = 'Events: ' + evtCnt;
+  descInput.value = '';
+  evNumSpan.textContent = evtCnt;
+  descBox.style.display = 'block';
+  descInput.focus();
+}
+
+function saveDesc(){
+  const txt = descInput.value.trim();
+  // 非空检查
+  if(txt === '') {
+      alert('Please enter a description for this event.');
+      descInput.focus();
+      return;
+  }
+
+  const lastIdx = events.findIndex(o => o.vid === idx && o.ev === evtCnt);
+  if(lastIdx > -1) events[lastIdx].desc = txt || '[auto-end]';
+  descBox.style.display = 'none';
+  
+  if(v.ended){
+    exportCurrentVideo();
+    idx++;
+    
+    // 关键修改：不自动播放下一个视频，等待用户按键
+    if(idx <= TOTAL){
+      // 短暂延迟后加载下一个视频，但等待按键开始
+      setTimeout(() => {
+        loadNext();
+        // 这里不自动播放，等待用户按键
+      }, 300);
+    } else {
+      finishAll();
+    }
+  } else {
+    v.play();
+  }
+}
+
+function exportCurrentVideo(){
+  const csv = ['Video,Event,EndTime(s),Description'];
+  events.filter(o => o.vid === idx).forEach(o => {
+    csv.push([o.vid, o.ev, o.time.toFixed(2), '"' + o.desc + '"'].join(','));
+  });
+  const blob = new Blob(['\uFEFF' + csv.join('\n')], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `v${idx}_events.csv`;
+  a.click();
+}
+
+function finishAll(){
+  prompt.textContent = 'All done! You can close this tab.';
+  prompt.style.display = 'block';
+  v.style.display = 'none';
+  counter.style.display = 'none';
+  document.getElementById('help').style.display = 'none';
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+/* ====== 事件监听器 ====== */
+document.getElementById('okBtn').addEventListener('click', function() {
+    if(descInput.value.trim() === '') {
+        alert('Please enter a description before submitting.');
+        return;
+    }
+    saveDesc();
+});
+
+document.getElementById('cancelBtn').addEventListener('click', cancelDescription);
+
+
+// 添加取消函数
+function cancelDescription() {
+    descBox.style.display = 'none';
+    
+    // 完全移除刚才添加的未描述事件
+    const lastEventIndex = events.findIndex(o => o.vid === idx && o.ev === evtCnt);
+    if(lastEventIndex > -1) {
+        events.splice(lastEventIndex, 1);
+        evtCnt--; // 事件计数减1
+        counter.textContent = 'Events: ' + evtCnt;
+    }
+    
+    // 显示提示，等待用户按键继续
+    prompt.textContent = 'Event cancelled. Press any key to continue video...';
+    prompt.style.display = 'block';
+    v.style.display = 'none';
+}
+
+document.addEventListener('keydown', (e) => {
+  if(document.activeElement.id === 'descInput') {
+        // 在描述框中只处理Enter和Escape
+        if(e.code === 'Enter'){
+            e.preventDefault();
+            if(descInput.value.trim() === '') {
+                alert('Please enter a description before submitting.');
+                return;
+            }
+            saveDesc();
+        }
+        if(e.code === 'Escape') {
+            e.preventDefault();
+            cancelDescription();
+        }
+        return;
+    }
+    
+    // 新增：处理取消后的继续播放
+    if(v.style.display === 'none' && prompt.style.display !== 'none' && 
+       prompt.textContent.includes('cancelled')) {
+        prompt.style.display = 'none';
+        v.style.display = 'block';
+        v.play();
+        return;
+    }
+  
+  if(e.code === 'Space' && v.style.display !== 'none'){
+    e.preventDefault();
+    pauseAndFineTune();
+    return;
+  }
+  
+  if(fineTuning && v.paused && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')){
+    e.preventDefault();
+    const step = e.code === 'ArrowLeft' ? -1 : 1;
+    v.currentTime = Math.max(0, v.currentTime + step);
+    return;
+  }
+  
+  if(fineTuning && v.paused && e.code === 'Enter'){
+    e.preventDefault();
+    confirmEnd();
+    return;
+  }
+  
+  // 关键修改：任何视频都可以通过按键开始播放
+  if(v.style.display === 'none' && prompt.style.display !== 'none' && e.target.tagName !== 'INPUT'){
+    prompt.style.display = 'none';
+    v.style.display = 'block';
+    v.play();
+  }
+  
+  if(e.code === 'KeyR'){
+    location.reload();
+  }
+});
+
+v.addEventListener('ended', () => {
+  if(v.currentTime < 1) return;
+  events.push({vid: idx, ev: evtCnt + 1, time: 180.00, desc: '[auto-end]'});
+  evtCnt++;
+  counter.textContent = 'Events: ' + evtCnt;
+  descInput.value = '';
+  evNumSpan.textContent = evtCnt;
+  descBox.style.display = 'block';
+  descInput.focus();
+});
+
+// 初始化：显示选择器，不自动开始
+</script>
+</body>
+</html>
