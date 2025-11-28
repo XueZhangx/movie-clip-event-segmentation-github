@@ -7,8 +7,11 @@
 body{margin:0;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
 #videoBox{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
 video {
-    width: 96%;
-    max-height: 96%;
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    object-fit: contain;
     pointer-events: none !important;
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
@@ -16,65 +19,86 @@ video {
     user-select: none !important;
     cursor: default !important;
 }
-#prompt{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:26px;text-align:center}
+#prompt{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:26px;text-align:center;line-height:1.5;white-space:pre-line;}
 #counter{position:fixed;top:20px;right:20px;font-size:24px}
-#help{position:fixed;bottom:20px;left:20px;font-size:14px;color:#ccc}
-#adjustHint{position:fixed;bottom:60px;left:20px;font-size:14px;color:#ccc;display:none}
+#help{position:fixed;bottom:20px;left:20px;font-size:14px;color:#ccc;line-height:1.4;}
+#adjustHint{position:fixed;bottom:60px;left:20px;font-size:14px;color:#ccc;display:none;line-height:1.4;}
 #descBox{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#222;padding:20px 30px;border-radius:8px;display:none;z-index:1000;}
 #descBox input{width:350px;font-size:18px;padding:6px 10px}
 #descBox button{margin-left:10px;padding:6px 12px;font-size:16px}
 #consent{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:2000;display:flex;align-items:center;justify-content:center;}
 #completion{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:2000;display:none;flex-direction:column;align-items:center;justify-content:center;}
+#starter{position:fixed;top:20px;left:20px;z-index:999;background:#222;padding:15px;border-radius:8px;border:1px solid #444;}
 </style>
 </head>
 <body>
 <!-- 同意书页面 -->
 <div id="consent">
-    <div style="max-width: 800px; margin: 50px auto; padding: 20px; background: #222; border-radius: 10px;">
-        <h2>Research Study Consent</h2>
-        <p>Please read the following information carefully:</p>
+    <div style="max-width: 800px; margin: 50px auto; padding: 30px; background: #222; border-radius: 10px; border: 1px solid #444;">
+        <h2>Research Study: Event Segmentation in Videos</h2>
+        <p>Please read the following information carefully before proceeding:</p>
         <ul>
-            <li>This study involves watching 10 short video clips (3 minutes each)</li>
-            <li>Your task is to mark event boundaries by pressing SPACEBAR</li>
-            <li>After each marked event, provide a brief description</li>
-            <li>The study will take approximately 40 minutes</li>
-            <li>Your responses will be recorded anonymously</li>
-            <li>You may withdraw at any time without penalty</li>
+            <li><strong>Task:</strong> You will watch 10 short video clips (about 3 minutes each)</li>
+            <li><strong>Your Role:</strong> Mark significant event boundaries by pressing the SPACEBAR when you feel one meaningful unit ends and another begins</li>
+            <li><strong>Process:</strong> After each marked event, you'll provide a brief description of what just happened</li>
+            <li><strong>Duration:</strong> The study will take approximately 30-40 minutes to complete</li>
+            <li><strong>Data:</strong> Your responses will be recorded anonymously for research purposes</li>
+            <li><strong>Voluntary:</strong> You may withdraw at any time without penalty</li>
         </ul>
-        <p>By proceeding, you indicate that you understand the above information and agree to participate.</p>
-        <button id="agreeBtn" style="padding: 10px 20px; font-size: 16px;">I Agree to Participate</button>
+        
+        <div style="background:#333;padding:15px;border-radius:5px;margin:20px 0;">
+            <h3 style="margin-top:0;">How to Mark Events:</h3>
+            <ul style="margin-bottom:0;">
+                <li><strong>SPACEBAR</strong> - Mark an event boundary (pause video)</li>
+                <li><strong>← → ARROWS</strong> - Fine-tune the timing (±1 second)</li>
+                <li><strong>ENTER</strong> - Confirm this event boundary</li>
+                <li><strong>SPACEBAR again</strong> - Cancel and resume playback</li>
+                <li><strong>ESC</strong> - Cancel event marking</li>
+            </ul>
+        </div>
+        
+        <p>By clicking "I Agree to Participate", you indicate that you understand these instructions and consent to participate in this research study.</p>
+        <button id="agreeBtn" style="padding: 12px 25px; font-size: 18px; background:#4CAF50;border:none;border-radius:5px;cursor:pointer;">I Agree to Participate</button>
     </div>
 </div>
 
 <!-- 实验界面 -->
 <div id="experiment" style="display: none;">
-    <div id="starter" style="position:fixed;top:20px;left:20px;z-index:999;background:#222;padding:10px;border-radius:6px;">
-        <label>Start from video:
-            <select id="startSelect"></select>
+    <div id="starter">
+        <div style="margin-bottom:10px;font-size:14px;color:#ccc;">If you need to restart or continue:</div>
+        <label style="font-size:14px;">Start from video:
+            <select id="startSelect" style="margin-left:5px;"></select>
         </label>
-        <button id="startBtn">Start New</button>
-        <button id="continueBtn" style="display:none;">Continue</button>
-        <div style="font-size:12px;color:#ccc;margin-top:5px;">Press any key to start each video.</div>
+        <div style="margin-top:10px;">
+            <button id="startBtn" style="padding:5px 10px;">Start New Session</button>
+            <button id="continueBtn" style="display:none;padding:5px 10px;margin-left:5px;">Continue</button>
+        </div>
     </div>
 
-    <div id="prompt">Press any key to start video 1 / 10</div>
+    <div id="prompt">Click "Start New Session" above to begin</div>
     <div id="counter">Events: 0</div>
     <div id="videoBox">
         <video id="v" controls style="display:none;"></video>
     </div>
-    <div id="help">Space = pause/unpause&nbsp;&nbsp; ← → = ±1 s&nbsp;&nbsp; Enter = confirm</div>
-    <div id="adjustHint">Use ← → keys to adjust time (1s steps), then press ENTER to confirm</div>
+    <div id="help">
+        <div>SPACEBAR = Mark event boundary (pause video)</div>
+        <div>← → = Adjust timing (±1 second) | ENTER = Confirm boundary</div>
+    </div>
+    <div id="adjustHint">
+        <div>Adjusting: Use ← → to fine-tune the time point</div>
+        <div>Press ENTER to confirm, or SPACEBAR to cancel and resume</div>
+    </div>
 
     <div id="descBox">
-        <label>Short description for event <span id="evNum"></span>:<br>
-            <input id="descInput" type="text" placeholder="e.g. Main character leaves the room">
+        <label>Please describe what happened at this event boundary:<br>
+            <input id="descInput" type="text" placeholder="Example: The main character decided to leave the building...">
         </label>
-        <div style="margin-top: 10px;">
-            <button id="okBtn">Submit Description</button>
-            <button id="cancelBtn" style="margin-left: 10px; background: #666;">Cancel Event</button>
+        <div style="margin-top: 15px;">
+            <button id="okBtn" style="background:#4CAF50;border:none;padding:8px 16px;border-radius:4px;">Submit Description (ENTER)</button>
+            <button id="cancelBtn" style="margin-left: 10px; background: #666;border:none;padding:8px 16px;border-radius:4px;">Cancel Event (ESC)</button>
         </div>
-        <div style="font-size: 12px; color: #999; margin-top: 5px;">
-            Press ESC to cancel or ENTER to submit
+        <div style="font-size: 12px; color: #999; margin-top: 8px;">
+            Description cannot be empty. Press ENTER to submit or ESC to cancel.
         </div>
     </div>
 </div>
@@ -241,6 +265,7 @@ function initializeExperiment() {
     // 有断点且非 URL 指定 → 显示「继续」按钮
     if(!urlParams.has('start') && localStorage.getItem(STORAGE_KEY)){
         continueBtn.style.display = 'inline';
+        prompt.textContent = 'Click "Continue" to resume, or "Start New Session" to begin from a different video';
     }
 
     /* ====== 主要变量和函数 ====== */
@@ -276,12 +301,7 @@ function initializeExperiment() {
         v.src = `v${idx}.mp4`;
         v.style.display = 'none';
         
-        if(idx === 1) {
-            prompt.textContent = `Press any key to start video ${idx} / ${TOTAL}\n\nInstructions:\n- SPACEBAR: Mark event boundaries\n- ARROW KEYS: Fine-tune timing (±1s)\n- ENTER: Confirm event`;
-        } else {
-            prompt.textContent = `Press any key to start video ${idx} / ${TOTAL}`;
-        }
-        
+        prompt.textContent = `Ready for Video ${idx} of ${TOTAL}\n\nPress any key to start playing`;
         prompt.style.display = 'block';
         evtCnt = 0;
         counter.textContent = 'Events: 0';
@@ -290,11 +310,13 @@ function initializeExperiment() {
 
     function pauseAndFineTune(){
         if(v.paused && fineTuning){
+            // 第二次按空格：取消微调，恢复播放
             fineTuning = false;
             adjustHint.style.display = 'none';
             v.play();
             return;
         }
+        // 第一次按空格：暂停并进入微调模式
         v.pause();
         fineTuning = true;
         adjustHint.style.display = 'block';
@@ -326,8 +348,8 @@ function initializeExperiment() {
         descBox.style.display = 'none';
         
         if(v.ended){
-            // === 关键修改：每个视频结束时立即保存数据 ===
-            saveVideoData(idx); // 保存当前视频数据
+            // 保存当前视频数据
+            saveVideoData(idx);
             
             idx++;
             
@@ -368,10 +390,8 @@ function initializeExperiment() {
             counter.textContent = 'Events: ' + evtCnt;
         }
         
-        // 显示提示，等待用户按键继续
-        prompt.textContent = 'Event cancelled. Press any key to continue video...';
-        prompt.style.display = 'block';
-        v.style.display = 'none';
+        // 直接恢复播放，不显示提示
+        v.play();
     }
 
     /* ====== 事件监听器 ====== */
@@ -402,12 +422,8 @@ function initializeExperiment() {
             return;
         }
         
-        // 处理取消后的继续播放
-        if(v.style.display === 'none' && prompt.style.display !== 'none' && 
-           prompt.textContent.includes('cancelled')) {
-            prompt.style.display = 'none';
-            v.style.display = 'block';
-            v.play();
+        // 阻止在starter显示时按任意键开始视频
+        if(document.getElementById('starter').style.display !== 'none') {
             return;
         }
         
