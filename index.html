@@ -112,20 +112,28 @@ video {
 </form>
 
 <script>
-// ====== PAVLOVIA 和 PROLIFIC 集成 ======
 
-// 从URL获取Prolific参数
-function getProlificParameters() {
+  // 从URL获取参数（兼容Prolific和非Prolific用户）
+// ====== 替换原来的Prolific部分 ======
+
+function getParticipantParameters() {
     const urlParams = new URLSearchParams(window.location.search);
+    // 生成有意义的匿名ID：前缀 + 时间戳 + 随机字符串
+    const generateAnonymousId = () => {
+        return `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    };
+    
     return {
-        PROLIFIC_PID: urlParams.get('PROLIFIC_PID') || 'test_participant',
-        STUDY_ID: urlParams.get('STUDY_ID') || 'test_study', 
-        SESSION_ID: urlParams.get('SESSION_ID') || 'test_session'
+        PROLIFIC_PID: urlParams.get('PROLIFIC_PID') || urlParams.get('participant_id') || generateAnonymousId(),
+        STUDY_ID: urlParams.get('STUDY_ID') || urlParams.get('study_id') || 'direct_link_study',
+        SESSION_ID: urlParams.get('SESSION_ID') || urlParams.get('session_id') || `session_${Date.now()}`
     };
 }
 
-// 获取Prolific信息
-const prolificInfo = getProlificParameters();
+// 替换原来的prolificInfo
+const participantInfo = getParticipantParameters();
+
+// 在saveVideoData和submitAllDataToNetlify函数中，把所有prolificInfo改为participantInfo
 
 // 重定向回Prolific
 function redirectToProlific() {
@@ -141,35 +149,26 @@ function redirectToProlific() {
 async function saveVideoData(videoIndex) {
     const videoEvents = events.filter(o => o.vid === videoIndex);
     
-    const dataToSend = {
-        prolific_pid: prolificInfo.PROLIFIC_PID,
-        study_id: prolificInfo.STUDY_ID,
-        session_id: prolificInfo.SESSION_ID,
-        video_index: videoIndex,
-        events: JSON.stringify(videoEvents),
-        completion_time: new Date().toISOString()
-    };
-
-    // 填充隐藏表单
-    document.getElementById('form-pid').value = dataToSend.prolific_pid;
-    document.getElementById('form-study-id').value = dataToSend.study_id;
-    document.getElementById('form-session-id').value = dataToSend.session_id;
-    document.getElementById('form-video-index').value = dataToSend.video_index;
-    document.getElementById('form-events').value = dataToSend.events;
-    document.getElementById('form-time').value = dataToSend.completion_time;
+    const formData = new FormData();
+    formData.append('form-name', 'event-segmentation-data');
+    formData.append('prolific_pid', participantInfo.PROLIFIC_PID);
+    formData.append('study_id', participantInfo.STUDY_ID);
+    formData.append('session_id', participantInfo.SESSION_ID);
+    formData.append('video_index', videoIndex.toString());
+    formData.append('events', JSON.stringify(videoEvents));
+    formData.append('completion_time', new Date().toISOString());
+    formData.append('user_agent', navigator.userAgent); // 添加浏览器信息
+    formData.append('source', 'direct_link'); // 标记来源
+    formData.append('bot-field', '');
 
     try {
-        const form = document.getElementById('netlify-data-form');
-        const formData = new FormData(form);
-        
-        // 静默提交到Netlify（用户无感知）
         await fetch('/', {
             method: 'POST',
             body: formData
         });
-        console.log(`Video ${videoIndex} data successfully submitted to Netlify Forms`);
+        console.log(`Video ${videoIndex} data submitted for participant: ${participantInfo.PROLIFIC_PID}`);
     } catch (error) {
-        console.log(`Video ${videoIndex} data submission completed`);
+        console.log(`Data submission completed for video ${videoIndex}`);
     }
 }
 
@@ -352,16 +351,22 @@ function initializeExperiment() {
     }
 
     function finishAll(){
-        // 提交所有数据到Netlify（作为备份）
-        submitAllDataToNetlify();
-        
-        // 显示完成页面
-        document.getElementById('experiment').style.display = 'none';
-        document.getElementById('completion').style.display = 'flex';
-        localStorage.removeItem(STORAGE_KEY);
-        
-        // 重定向回Prolific
-        redirectToProlific();
+      // 提交所有数据到Netlify
+      submitAllDataToNetlify();
+      
+      // 显示完成页面
+      document.getElementById('experiment').style.display = 'none';
+      document.getElementById('completion').style.display = 'flex';
+      localStorage.removeItem(STORAGE_KEY);
+      
+      // 只有Prolific用户才重定向
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('PROLIFIC_PID')) {
+          redirectToProlific();
+      } else {
+          // 非Prolific用户显示感谢信息
+          document.querySelector('#completion p:last-child').textContent = 'Thank you for completing the study! Your data has been recorded.';
+      }
     }
 
     // 添加取消函数
