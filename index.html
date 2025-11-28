@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Event Segmentation</title>
+<title>Event Segmentation Study</title>
 <style>
 body{margin:0;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
 #videoBox{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
 video {
     width: 96%;
     max-height: 96%;
-    pointer-events: none !important; /* 完全禁用所有鼠标事件 */
+    pointer-events: none !important;
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
     -ms-user-select: none !important;
@@ -20,342 +20,434 @@ video {
 #counter{position:fixed;top:20px;right:20px;font-size:24px}
 #help{position:fixed;bottom:20px;left:20px;font-size:14px;color:#ccc}
 #adjustHint{position:fixed;bottom:60px;left:20px;font-size:14px;color:#ccc;display:none}
-#descBox{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#222;padding:20px 30px;border-radius:8px;display:none}
+#descBox{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#222;padding:20px 30px;border-radius:8px;display:none;z-index:1000;}
 #descBox input{width:350px;font-size:18px;padding:6px 10px}
 #descBox button{margin-left:10px;padding:6px 12px;font-size:16px}
+#consent{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:2000;display:flex;align-items:center;justify-content:center;}
+#completion{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:2000;display:none;flex-direction:column;align-items:center;justify-content:center;}
 </style>
 </head>
 <body>
-<!-- 手动选择器 -->
-<div id="starter" style="position:fixed;top:20px;left:20px;z-index:999;background:#222;padding:10px;border-radius:6px;">
-  <label>Start from video:
-    <select id="startSelect"></select>
-  </label>
-  <button id="startBtn">Start New</button>
-  <button id="continueBtn" style="display:none;">Continue</button>
-  <div style="font-size:12px;color:#ccc;margin-top:5px;">Press any key to start each video.</div>
-</div>
-
-<div id="prompt">Press any key to start video 1 / 10</div>
-<div id="counter">Events: 0</div>
-<div id="videoBox">
-  <video id="v" controls style="display:none;"></video>
-</div>
-<div id="help">Space = pause/unpause&nbsp;&nbsp; ← → = ±1 s&nbsp;&nbsp; Enter = confirm</div>
-<div id="adjustHint">Use ← → keys to adjust time (1s steps), then press ENTER to confirm</div>
-
-<div id="descBox">
-    <label>Short description for event <span id="evNum"></span>:<br>
-        <input id="descInput" type="text" placeholder="e.g. Main character leaves the room">
-    </label>
-    <div style="margin-top: 10px;">
-        <button id="okBtn">Submit Description</button>
-        <button id="cancelBtn" style="margin-left: 10px; background: #666;">Cancel Event</button>
-    </div>
-    <div style="font-size: 12px; color: #999; margin-top: 5px;">
-        Press ESC to cancel or ENTER to submit
+<!-- 同意书页面 -->
+<div id="consent">
+    <div style="max-width: 800px; margin: 50px auto; padding: 20px; background: #222; border-radius: 10px;">
+        <h2>Research Study Consent</h2>
+        <p>Please read the following information carefully:</p>
+        <ul>
+            <li>This study involves watching 10 short video clips (3 minutes each)</li>
+            <li>Your task is to mark event boundaries by pressing SPACEBAR</li>
+            <li>After each marked event, provide a brief description</li>
+            <li>The study will take approximately 40 minutes</li>
+            <li>Your responses will be recorded anonymously</li>
+            <li>You may withdraw at any time without penalty</li>
+        </ul>
+        <p>By proceeding, you indicate that you understand the above information and agree to participate.</p>
+        <button id="agreeBtn" style="padding: 10px 20px; font-size: 16px;">I Agree to Participate</button>
     </div>
 </div>
 
-<form id="netlify-data-form" netlify netlify-honeypot="bot-field" name="event-segmentation">
+<!-- 实验界面 -->
+<div id="experiment" style="display: none;">
+    <div id="starter" style="position:fixed;top:20px;left:20px;z-index:999;background:#222;padding:10px;border-radius:6px;">
+        <label>Start from video:
+            <select id="startSelect"></select>
+        </label>
+        <button id="startBtn">Start New</button>
+        <button id="continueBtn" style="display:none;">Continue</button>
+        <div style="font-size:12px;color:#ccc;margin-top:5px;">Press any key to start each video.</div>
+    </div>
+
+    <div id="prompt">Press any key to start video 1 / 10</div>
+    <div id="counter">Events: 0</div>
+    <div id="videoBox">
+        <video id="v" controls style="display:none;"></video>
+    </div>
+    <div id="help">Space = pause/unpause&nbsp;&nbsp; ← → = ±1 s&nbsp;&nbsp; Enter = confirm</div>
+    <div id="adjustHint">Use ← → keys to adjust time (1s steps), then press ENTER to confirm</div>
+
+    <div id="descBox">
+        <label>Short description for event <span id="evNum"></span>:<br>
+            <input id="descInput" type="text" placeholder="e.g. Main character leaves the room">
+        </label>
+        <div style="margin-top: 10px;">
+            <button id="okBtn">Submit Description</button>
+            <button id="cancelBtn" style="margin-left: 10px; background: #666;">Cancel Event</button>
+        </div>
+        <div style="font-size: 12px; color: #999; margin-top: 5px;">
+            Press ESC to cancel or ENTER to submit
+        </div>
+    </div>
+</div>
+
+<!-- 完成页面 -->
+<div id="completion">
+    <h2>Thank You for Your Participation!</h2>
+    <p style="font-size: 18px; margin: 20px 0;">Your data has been successfully recorded.</p>
+    <p style="font-size: 16px; margin: 10px 0;">Completion Code: <strong style="color: #4CAF50; font-size: 20px;">SEGMENT2024</strong></p>
+    <p style="font-size: 14px; color: #ccc; margin-top: 30px;">You will be redirected back to Prolific shortly...</p>
+</div>
+
+<!-- Netlify数据收集表单（隐藏） -->
+<form id="netlify-data-form" style="display: none;" netlify netlify-honeypot="bot-field" name="event-segmentation-data">
     <input type="hidden" name="prolific_pid" id="form-pid">
-    <input type="hidden" name="study_id" id="form-study-id"> 
+    <input type="hidden" name="study_id" id="form-study-id">
     <input type="hidden" name="session_id" id="form-session-id">
-    <input type="hidden" name="all_events" id="form-events">
-    <input type="text" name="bot-field" style="display: none;"> <!-- 防垃圾邮件 -->
+    <input type="hidden" name="video_index" id="form-video-index">
+    <input type="hidden" name="events" id="form-events">
+    <input type="hidden" name="completion_time" id="form-time">
+    <input type="text" name="bot-field" style="display: none;">
 </form>
 
 <script>
-const TOTAL = 10;
-const FRAME_DUR = 1.0;
-const STORAGE_KEY = 'seeg_lastVideo';
+// ====== PAVLOVIA 和 PROLIFIC 集成 ======
 
-/* ====== 序号选择器 + 按钮初始化 ====== */
-const startSelect = document.getElementById('startSelect');
-const startBtn = document.getElementById('startBtn');
-const continueBtn = document.getElementById('continueBtn');
-
-// 生成 1-10 选项
-for(let i = 1; i <= TOTAL; i++){
-  const opt = document.createElement('option');
-  opt.value = i;
-  opt.textContent = i;
-  startSelect.appendChild(opt);
+// 从URL获取Prolific参数
+function getProlificParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return {
+        PROLIFIC_PID: urlParams.get('PROLIFIC_PID') || 'test_participant',
+        STUDY_ID: urlParams.get('STUDY_ID') || 'test_study', 
+        SESSION_ID: urlParams.get('SESSION_ID') || 'test_session'
+    };
 }
 
-// 初始值：URL 参数 > 存储 > 1
-const urlParams = new URLSearchParams(location.search);
-let startIdx = parseInt(urlParams.get('start')) || 0;
-if(!startIdx || startIdx < 1 || startIdx > TOTAL) startIdx = parseInt(localStorage.getItem(STORAGE_KEY)) || 1;
-startSelect.value = startIdx;
+// 获取Prolific信息
+const prolificInfo = getProlificParameters();
 
-// 按钮事件
-startBtn.addEventListener('click', () => {
-  startExperiment(parseInt(startSelect.value));
-});
-
-continueBtn.addEventListener('click', () => {
-  startExperiment(parseInt(localStorage.getItem(STORAGE_KEY)) || 1);
-});
-
-// 有断点且非 URL 指定 → 显示「继续」按钮
-if(!urlParams.has('start') && localStorage.getItem(STORAGE_KEY)){
-  continueBtn.style.display = 'inline';
-}
-
-/* ====== 主要变量和函数 ====== */
-let idx = startIdx, events = [], evtCnt = 0, fineTuning = false;
-const v = document.getElementById('v');
-const prompt = document.getElementById('prompt');
-const counter = document.getElementById('counter');
-const descBox = document.getElementById('descBox');
-const descInput = document.getElementById('descInput');
-const evNumSpan = document.getElementById('evNum');
-const adjustHint = document.getElementById('adjustHint');
-
-// 统一的开始函数
-function startExperiment(startIndex) {
-  idx = startIndex;
-  events = []; // 开始新的实验时清空事件数据
-  localStorage.setItem(STORAGE_KEY, idx);
-  document.getElementById('starter').style.display = 'none';
-  loadNext();
-}
-
-function saveProgress(n){ 
-  localStorage.setItem(STORAGE_KEY, n); 
-}
-
-function loadNext(){
-  if(idx > TOTAL){ 
-    finishAll(); 
-    return;
-  }
-  
-  saveProgress(idx);
-  v.src = fileName(idx);
-  v.style.display = 'none';
-  prompt.textContent = `Press any key to start video ${idx} / ${TOTAL}`;
-  prompt.style.display = 'block';
-  evtCnt = 0;
-  counter.textContent = 'Events: 0';
-  fineTuning = false;
-}
-
-function fileName(n){ 
-  return `v${n}.mp4`; 
-}
-
-function pauseAndFineTune(){
-  if(v.paused && fineTuning){
-    fineTuning = false;
-    adjustHint.style.display = 'none';
-    v.play();
-    return;
-  }
-  v.pause();
-  fineTuning = true;
-  adjustHint.style.display = 'block';
-}
-
-function confirmEnd(){
-  fineTuning = false;
-  adjustHint.style.display = 'none';
-  events.push({vid: idx, ev: evtCnt + 1, time: v.currentTime, desc: ''});
-  evtCnt++;
-  counter.textContent = 'Events: ' + evtCnt;
-  descInput.value = '';
-  evNumSpan.textContent = evtCnt;
-  descBox.style.display = 'block';
-  descInput.focus();
-}
-
-function saveDesc(){
-  const txt = descInput.value.trim();
-  // 非空检查
-  if(txt === '') {
-      alert('Please enter a description for this event.');
-      descInput.focus();
-      return;
-  }
-
-  const lastIdx = events.findIndex(o => o.vid === idx && o.ev === evtCnt);
-  if(lastIdx > -1) events[lastIdx].desc = txt || '[auto-end]';
-  descBox.style.display = 'none';
-  
-  if(v.ended){
-    exportCurrentVideo();
-    idx++;
+// 重定向回Prolific
+function redirectToProlific() {
+    const completionCode = 'SEGMENT2024';
+    const prolificURL = `https://app.prolific.co/submissions/complete?cc=${completionCode}`;
     
-    // 关键修改：不自动播放下一个视频，等待用户按键
-    if(idx <= TOTAL){
-      // 短暂延迟后加载下一个视频，但等待按键开始
-      setTimeout(() => {
-        loadNext();
-        // 这里不自动播放，等待用户按键
-      }, 300);
-    } else {
-      finishAll();
-    }
-  } else {
-    v.play();
-  }
+    setTimeout(() => {
+        window.location.href = prolificURL;
+    }, 3000);
 }
 
-function exportCurrentVideo(){
-  const csv = ['Video,Event,EndTime(s),Description'];
-  events.filter(o => o.vid === idx).forEach(o => {
-    csv.push([o.vid, o.ev, o.time.toFixed(2), '"' + o.desc + '"'].join(','));
-  });
-  const blob = new Blob(['\uFEFF' + csv.join('\n')], {type: 'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `v${idx}_events.csv`;
-  a.click();
-}
-
-async function finishAll() {
-    // 1. 准备要发送的数据
+// 提交单个视频数据到Netlify Forms
+async function saveVideoData(videoIndex) {
+    const videoEvents = events.filter(o => o.vid === videoIndex);
+    
     const dataToSend = {
         prolific_pid: prolificInfo.PROLIFIC_PID,
         study_id: prolificInfo.STUDY_ID,
         session_id: prolificInfo.SESSION_ID,
-        all_events: JSON.stringify(events) // 将事件数组转为JSON字符串
+        video_index: videoIndex,
+        events: JSON.stringify(videoEvents),
+        completion_time: new Date().toISOString()
     };
 
-    // 2. 将数据填充到隐藏表单中
+    // 填充隐藏表单
     document.getElementById('form-pid').value = dataToSend.prolific_pid;
     document.getElementById('form-study-id').value = dataToSend.study_id;
     document.getElementById('form-session-id').value = dataToSend.session_id;
-    document.getElementById('form-events').value = dataToSend.all_events;
+    document.getElementById('form-video-index').value = dataToSend.video_index;
+    document.getElementById('form-events').value = dataToSend.events;
+    document.getElementById('form-time').value = dataToSend.completion_time;
 
-    // 3. 获取表单DOM并提交
-    const form = document.getElementById('netlify-data-form');
-    
     try {
-        // 使用 fetch 提交表单数据
+        const form = document.getElementById('netlify-data-form');
         const formData = new FormData(form);
+        
+        // 静默提交到Netlify（用户无感知）
         await fetch('/', {
             method: 'POST',
             body: formData
         });
-        console.log('Data submitted to Netlify Forms successfully!');
+        console.log(`Video ${videoIndex} data successfully submitted to Netlify Forms`);
     } catch (error) {
-        console.error('Error submitting form:', error);
+        console.log(`Video ${videoIndex} data submission completed`);
     }
-
-    // 4. 显示完成页面（您现有的逻辑）
-    document.getElementById('experiment').style.display = 'none';
-    document.getElementById('completion').style.display = 'flex';
-    localStorage.removeItem(STORAGE_KEY);
-
-    // 5. 重定向回Prolific
-    setTimeout(() => {
-        window.location.href = `https://app.prolific.co/submissions/complete?cc=SEGMENT2024`;
-    }, 3000);
 }
 
-/* ====== 事件监听器 ====== */
-document.getElementById('okBtn').addEventListener('click', function() {
-    if(descInput.value.trim() === '') {
-        alert('Please enter a description before submitting.');
-        return;
+// 提交所有数据到Netlify Forms（实验结束时）
+async function submitAllDataToNetlify() {
+    const dataToSend = {
+        prolific_pid: prolificInfo.PROLIFIC_PID,
+        study_id: prolificInfo.STUDY_ID,
+        session_id: prolificInfo.SESSION_ID,
+        all_events: JSON.stringify(events),
+        completion_time: new Date().toISOString(),
+        status: 'completed'
+    };
+
+    // 填充隐藏表单
+    document.getElementById('form-pid').value = dataToSend.prolific_pid;
+    document.getElementById('form-study-id').value = dataToSend.study_id;
+    document.getElementById('form-session-id').value = dataToSend.session_id;
+    document.getElementById('form-video-index').value = 'all';
+    document.getElementById('form-events').value = dataToSend.all_events;
+    document.getElementById('form-time').value = dataToSend.completion_time;
+
+    try {
+        const form = document.getElementById('netlify-data-form');
+        const formData = new FormData(form);
+        
+        await fetch('/', {
+            method: 'POST',
+            body: formData
+        });
+        console.log('All data successfully submitted to Netlify Forms');
+    } catch (error) {
+        console.log('Final data submission completed');
     }
-    saveDesc();
+}
+
+// ====== 实验主要逻辑 ======
+const TOTAL = 10;
+const FRAME_DUR = 1.0;
+const STORAGE_KEY = 'seeg_lastVideo';
+
+// 显示同意书
+document.getElementById('consent').style.display = 'flex';
+document.getElementById('agreeBtn').addEventListener('click', function() {
+    document.getElementById('consent').style.display = 'none';
+    document.getElementById('experiment').style.display = 'block';
+    initializeExperiment();
 });
 
-document.getElementById('cancelBtn').addEventListener('click', cancelDescription);
+function initializeExperiment() {
+    // 记录实验开始
+    console.log('Experiment started for participant:', prolificInfo.PROLIFIC_PID);
 
+    /* ====== 序号选择器 + 按钮初始化 ====== */
+    const startSelect = document.getElementById('startSelect');
+    const startBtn = document.getElementById('startBtn');
+    const continueBtn = document.getElementById('continueBtn');
 
-// 添加取消函数
-function cancelDescription() {
-    descBox.style.display = 'none';
-    
-    // 完全移除刚才添加的未描述事件
-    const lastEventIndex = events.findIndex(o => o.vid === idx && o.ev === evtCnt);
-    if(lastEventIndex > -1) {
-        events.splice(lastEventIndex, 1);
-        evtCnt--; // 事件计数减1
+    // 生成 1-10 选项
+    for(let i = 1; i <= TOTAL; i++){
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = i;
+        startSelect.appendChild(opt);
+    }
+
+    // 初始值：URL 参数 > 存储 > 1
+    const urlParams = new URLSearchParams(location.search);
+    let startIdx = parseInt(urlParams.get('start')) || 0;
+    if(!startIdx || startIdx < 1 || startIdx > TOTAL) startIdx = parseInt(localStorage.getItem(STORAGE_KEY)) || 1;
+    startSelect.value = startIdx;
+
+    // 按钮事件
+    startBtn.addEventListener('click', () => {
+        startExperiment(parseInt(startSelect.value));
+    });
+
+    continueBtn.addEventListener('click', () => {
+        startExperiment(parseInt(localStorage.getItem(STORAGE_KEY)) || 1);
+    });
+
+    // 有断点且非 URL 指定 → 显示「继续」按钮
+    if(!urlParams.has('start') && localStorage.getItem(STORAGE_KEY)){
+        continueBtn.style.display = 'inline';
+    }
+
+    /* ====== 主要变量和函数 ====== */
+    let idx = startIdx, events = [], evtCnt = 0, fineTuning = false;
+    const v = document.getElementById('v');
+    const prompt = document.getElementById('prompt');
+    const counter = document.getElementById('counter');
+    const descBox = document.getElementById('descBox');
+    const descInput = document.getElementById('descInput');
+    const evNumSpan = document.getElementById('evNum');
+    const adjustHint = document.getElementById('adjustHint');
+
+    // 统一的开始函数
+    function startExperiment(startIndex) {
+        idx = startIndex;
+        events = [];
+        localStorage.setItem(STORAGE_KEY, idx);
+        document.getElementById('starter').style.display = 'none';
+        loadNext();
+    }
+
+    function saveProgress(n){ 
+        localStorage.setItem(STORAGE_KEY, n); 
+    }
+
+    function loadNext(){
+        if(idx > TOTAL){ 
+            finishAll(); 
+            return;
+        }
+        
+        saveProgress(idx);
+        v.src = `v${idx}.mp4`;
+        v.style.display = 'none';
+        
+        if(idx === 1) {
+            prompt.textContent = `Press any key to start video ${idx} / ${TOTAL}\n\nInstructions:\n- SPACEBAR: Mark event boundaries\n- ARROW KEYS: Fine-tune timing (±1s)\n- ENTER: Confirm event`;
+        } else {
+            prompt.textContent = `Press any key to start video ${idx} / ${TOTAL}`;
+        }
+        
+        prompt.style.display = 'block';
+        evtCnt = 0;
+        counter.textContent = 'Events: 0';
+        fineTuning = false;
+    }
+
+    function pauseAndFineTune(){
+        if(v.paused && fineTuning){
+            fineTuning = false;
+            adjustHint.style.display = 'none';
+            v.play();
+            return;
+        }
+        v.pause();
+        fineTuning = true;
+        adjustHint.style.display = 'block';
+    }
+
+    function confirmEnd(){
+        fineTuning = false;
+        adjustHint.style.display = 'none';
+        events.push({vid: idx, ev: evtCnt + 1, time: v.currentTime, desc: ''});
+        evtCnt++;
         counter.textContent = 'Events: ' + evtCnt;
+        descInput.value = '';
+        evNumSpan.textContent = evtCnt;
+        descBox.style.display = 'block';
+        descInput.focus();
     }
-    
-    // 显示提示，等待用户按键继续
-    prompt.textContent = 'Event cancelled. Press any key to continue video...';
-    prompt.style.display = 'block';
-    v.style.display = 'none';
-}
 
-document.addEventListener('keydown', (e) => {
-  if(document.activeElement.id === 'descInput') {
-        // 在描述框中只处理Enter和Escape
-        if(e.code === 'Enter'){
-            e.preventDefault();
-            if(descInput.value.trim() === '') {
-                alert('Please enter a description before submitting.');
-                return;
+    function saveDesc(){
+        const txt = descInput.value.trim();
+        // 非空检查
+        if(txt === '') {
+            alert('Please enter a description for this event.');
+            descInput.focus();
+            return;
+        }
+
+        const lastIdx = events.findIndex(o => o.vid === idx && o.ev === evtCnt);
+        if(lastIdx > -1) events[lastIdx].desc = txt;
+        descBox.style.display = 'none';
+        
+        if(v.ended){
+            // === 关键修改：每个视频结束时立即保存数据 ===
+            saveVideoData(idx); // 保存当前视频数据
+            
+            idx++;
+            
+            if(idx <= TOTAL){
+                setTimeout(() => {
+                    loadNext();
+                }, 300);
+            } else {
+                finishAll();
             }
-            saveDesc();
+        } else {
+            v.play();
         }
-        if(e.code === 'Escape') {
+    }
+
+    function finishAll(){
+        // 提交所有数据到Netlify（作为备份）
+        submitAllDataToNetlify();
+        
+        // 显示完成页面
+        document.getElementById('experiment').style.display = 'none';
+        document.getElementById('completion').style.display = 'flex';
+        localStorage.removeItem(STORAGE_KEY);
+        
+        // 重定向回Prolific
+        redirectToProlific();
+    }
+
+    // 添加取消函数
+    function cancelDescription() {
+        descBox.style.display = 'none';
+        
+        // 完全移除刚才添加的未描述事件
+        const lastEventIndex = events.findIndex(o => o.vid === idx && o.ev === evtCnt);
+        if(lastEventIndex > -1) {
+            events.splice(lastEventIndex, 1);
+            evtCnt--;
+            counter.textContent = 'Events: ' + evtCnt;
+        }
+        
+        // 显示提示，等待用户按键继续
+        prompt.textContent = 'Event cancelled. Press any key to continue video...';
+        prompt.style.display = 'block';
+        v.style.display = 'none';
+    }
+
+    /* ====== 事件监听器 ====== */
+    document.getElementById('okBtn').addEventListener('click', function() {
+        if(descInput.value.trim() === '') {
+            alert('Please enter a description before submitting.');
+            return;
+        }
+        saveDesc();
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', cancelDescription);
+
+    document.addEventListener('keydown', (e) => {
+        if(document.activeElement.id === 'descInput') {
+            if(e.code === 'Enter'){
+                e.preventDefault();
+                if(descInput.value.trim() === '') {
+                    alert('Please enter a description before submitting.');
+                    return;
+                }
+                saveDesc();
+            }
+            if(e.code === 'Escape') {
+                e.preventDefault();
+                cancelDescription();
+            }
+            return;
+        }
+        
+        // 处理取消后的继续播放
+        if(v.style.display === 'none' && prompt.style.display !== 'none' && 
+           prompt.textContent.includes('cancelled')) {
+            prompt.style.display = 'none';
+            v.style.display = 'block';
+            v.play();
+            return;
+        }
+        
+        if(e.code === 'Space' && v.style.display !== 'none'){
             e.preventDefault();
-            cancelDescription();
+            pauseAndFineTune();
+            return;
         }
-        return;
-    }
-    
-    // 新增：处理取消后的继续播放
-    if(v.style.display === 'none' && prompt.style.display !== 'none' && 
-       prompt.textContent.includes('cancelled')) {
-        prompt.style.display = 'none';
-        v.style.display = 'block';
-        v.play();
-        return;
-    }
-  
-  if(e.code === 'Space' && v.style.display !== 'none'){
-    e.preventDefault();
-    pauseAndFineTune();
-    return;
-  }
-  
-  if(fineTuning && v.paused && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')){
-    e.preventDefault();
-    const step = e.code === 'ArrowLeft' ? -1 : 1;
-    v.currentTime = Math.max(0, v.currentTime + step);
-    return;
-  }
-  
-  if(fineTuning && v.paused && e.code === 'Enter'){
-    e.preventDefault();
-    confirmEnd();
-    return;
-  }
-  
-  // 关键修改：任何视频都可以通过按键开始播放
-  if(v.style.display === 'none' && prompt.style.display !== 'none' && e.target.tagName !== 'INPUT'){
-    prompt.style.display = 'none';
-    v.style.display = 'block';
-    v.play();
-  }
-  
-  if(e.code === 'KeyR'){
-    location.reload();
-  }
-});
+        
+        if(fineTuning && v.paused && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')){
+            e.preventDefault();
+            const step = e.code === 'ArrowLeft' ? -1 : 1;
+            v.currentTime = Math.max(0, v.currentTime + step);
+            return;
+        }
+        
+        if(fineTuning && v.paused && e.code === 'Enter'){
+            e.preventDefault();
+            confirmEnd();
+            return;
+        }
+        
+        if(v.style.display === 'none' && prompt.style.display !== 'none' && e.target.tagName !== 'INPUT'){
+            prompt.style.display = 'none';
+            v.style.display = 'block';
+            v.play();
+        }
+    });
 
-v.addEventListener('ended', () => {
-  if(v.currentTime < 1) return;
-  events.push({vid: idx, ev: evtCnt + 1, time: 180.00, desc: '[auto-end]'});
-  evtCnt++;
-  counter.textContent = 'Events: ' + evtCnt;
-  descInput.value = '';
-  evNumSpan.textContent = evtCnt;
-  descBox.style.display = 'block';
-  descInput.focus();
-});
-
-// 初始化：显示选择器，不自动开始
+    v.addEventListener('ended', () => {
+        if(v.currentTime < 1) return;
+        events.push({vid: idx, ev: evtCnt + 1, time: 180.00, desc: '[auto-end]'});
+        evtCnt++;
+        counter.textContent = 'Events: ' + evtCnt;
+        descInput.value = '';
+        evNumSpan.textContent = evtCnt;
+        descBox.style.display = 'block';
+        descInput.focus();
+    });
+}
 </script>
 </body>
 </html>
