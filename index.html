@@ -38,21 +38,20 @@ video {
         <h2>Research Study: Event Segmentation in Videos</h2>
         <p>Please read the following information carefully before proceeding:</p>
         <ul>
-            <li><strong>Task:</strong> You will watch 10 short video clips (about 3 minutes each)</li>
-            <li><strong>Your Role:</strong> Mark significant event boundaries by pressing the SPACEBAR when you feel one meaningful unit ends and another begins</li>
-            <li><strong>Process:</strong> After each marked event, you'll provide a brief description of what just happened</li>
-            <li><strong>Duration:</strong> The study will take approximately 30-40 minutes to complete</li>
-            <li><strong>Data:</strong> Your responses will be recorded anonymously for research purposes</li>
-            <li><strong>Voluntary:</strong> You may withdraw at any time without penalty</li>
+            <li><strong>Task:</strong> You will watch 10 short video clips (3 minutes each)</li>
+            <li><strong>Your Role:</strong> Mark event boundaries when you feel one meaningful unit ends and another begins</li>
+            <li><strong>Process:</strong> After each marked event, you need provide a brief description of the event</li>
+            <li><strong>Duration:</strong> The study will take approximately 40 minutes to complete</li>
         </ul>
         
         <div style="background:#333;padding:15px;border-radius:5px;margin:20px 0;">
             <h3 style="margin-top:0;">How to Mark Events:</h3>
             <ul style="margin-bottom:0;">
                 <li><strong>SPACEBAR</strong> - Mark an event boundary (pause video)</li>
-                <li><strong>← → ARROWS</strong> - Fine-tune the timing (±1 second)</li>
-                <li><strong>ENTER</strong> - Confirm this event boundary</li>
                 <li><strong>SPACEBAR again</strong> - Cancel and resume playback</li>
+                <li><strong>← → ARROWS</strong> - Fine-tune the timing (±1 second)</li>
+                <li><strong>ENTER</strong> - Confirm this event boundary and type description</li>
+                <li><strong>ENTER again</strong> - Submit descriptionn and resume playback</li>
                 <li><strong>ESC</strong> - Cancel event marking</li>
             </ul>
         </div>
@@ -81,8 +80,8 @@ video {
         <video id="v" controls style="display:none;"></video>
     </div>
     <div id="help">
-        <div>SPACEBAR = Mark event boundary (pause video)</div>
-        <div>← → = Adjust timing (±1 second) | ENTER = Confirm boundary</div>
+        <div>SPACEBAR : Mark event boundary (pause video)</div>
+        <div>← → : Adjust timing (±1 second) | ENTER : Confirm boundary</div>
     </div>
     <div id="adjustHint">
         <div>Adjusting: Use ← → to fine-tune the time point</div>
@@ -265,7 +264,7 @@ function initializeExperiment() {
     // 有断点且非 URL 指定 → 显示「继续」按钮
     if(!urlParams.has('start') && localStorage.getItem(STORAGE_KEY)){
         continueBtn.style.display = 'inline';
-        prompt.textContent = 'Click "Continue" to resume, or "Start New Session" to begin from a different video';
+        prompt.textContent = 'choose the video number and click "Start New Session" to begin from last video you not finished';
     }
 
     /* ====== 主要变量和函数 ====== */
@@ -424,6 +423,15 @@ function initializeExperiment() {
         
         // 阻止在starter显示时按任意键开始视频
         if(document.getElementById('starter').style.display !== 'none') {
+            return;
+        }
+        
+        // 处理取消后的继续播放
+        if(v.style.display === 'none' && prompt.style.display !== 'none' && 
+           prompt.textContent.includes('cancelled')) {
+            prompt.style.display = 'none';
+            v.style.display = 'block';
+            v.play();
             return;
         }
         
