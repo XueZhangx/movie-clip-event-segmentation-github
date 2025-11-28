@@ -57,6 +57,14 @@ video {
     </div>
 </div>
 
+<form id="netlify-data-form" netlify netlify-honeypot="bot-field" name="event-segmentation">
+    <input type="hidden" name="prolific_pid" id="form-pid">
+    <input type="hidden" name="study_id" id="form-study-id"> 
+    <input type="hidden" name="session_id" id="form-session-id">
+    <input type="hidden" name="all_events" id="form-events">
+    <input type="text" name="bot-field" style="display: none;"> <!-- 防垃圾邮件 -->
+</form>
+
 <script>
 const TOTAL = 10;
 const FRAME_DUR = 1.0;
@@ -207,13 +215,45 @@ function exportCurrentVideo(){
   a.click();
 }
 
-function finishAll(){
-  prompt.textContent = 'All done! You can close this tab.';
-  prompt.style.display = 'block';
-  v.style.display = 'none';
-  counter.style.display = 'none';
-  document.getElementById('help').style.display = 'none';
-  localStorage.removeItem(STORAGE_KEY);
+async function finishAll() {
+    // 1. 准备要发送的数据
+    const dataToSend = {
+        prolific_pid: prolificInfo.PROLIFIC_PID,
+        study_id: prolificInfo.STUDY_ID,
+        session_id: prolificInfo.SESSION_ID,
+        all_events: JSON.stringify(events) // 将事件数组转为JSON字符串
+    };
+
+    // 2. 将数据填充到隐藏表单中
+    document.getElementById('form-pid').value = dataToSend.prolific_pid;
+    document.getElementById('form-study-id').value = dataToSend.study_id;
+    document.getElementById('form-session-id').value = dataToSend.session_id;
+    document.getElementById('form-events').value = dataToSend.all_events;
+
+    // 3. 获取表单DOM并提交
+    const form = document.getElementById('netlify-data-form');
+    
+    try {
+        // 使用 fetch 提交表单数据
+        const formData = new FormData(form);
+        await fetch('/', {
+            method: 'POST',
+            body: formData
+        });
+        console.log('Data submitted to Netlify Forms successfully!');
+    } catch (error) {
+        console.error('Error submitting form:', error);
+    }
+
+    // 4. 显示完成页面（您现有的逻辑）
+    document.getElementById('experiment').style.display = 'none';
+    document.getElementById('completion').style.display = 'flex';
+    localStorage.removeItem(STORAGE_KEY);
+
+    // 5. 重定向回Prolific
+    setTimeout(() => {
+        window.location.href = `https://app.prolific.co/submissions/complete?cc=SEGMENT2024`;
+    }, 3000);
 }
 
 /* ====== 事件监听器 ====== */
