@@ -102,6 +102,7 @@ video {
 
 <!-- Netlify数据收集表单（隐藏） -->
 <form id="netlify-data-form" style="display: none;" netlify netlify-honeypot="bot-field" name="event-segmentation-data">
+    <input type="hidden" name="form-name" value="event-segmentation-data"> 
     <input type="hidden" name="prolific_pid" id="form-pid">
     <input type="hidden" name="study_id" id="form-study-id">
     <input type="hidden" name="session_id" id="form-session-id">
@@ -149,6 +150,9 @@ function redirectToProlific() {
 async function saveVideoData(videoIndex) {
     const videoEvents = events.filter(o => o.vid === videoIndex);
     
+    console.log(`准备保存视频 ${videoIndex} 的数据:`, videoEvents); // 调试日志
+    
+    // 方法1：使用 FormData 直接提交（推荐）
     const formData = new FormData();
     formData.append('form-name', 'event-segmentation-data');
     formData.append('prolific_pid', participantInfo.PROLIFIC_PID);
@@ -157,18 +161,22 @@ async function saveVideoData(videoIndex) {
     formData.append('video_index', videoIndex.toString());
     formData.append('events', JSON.stringify(videoEvents));
     formData.append('completion_time', new Date().toISOString());
-    formData.append('user_agent', navigator.userAgent); // 添加浏览器信息
-    formData.append('source', 'direct_link'); // 标记来源
-    formData.append('bot-field', '');
+    formData.append('bot-field', ''); // honeypot字段
 
     try {
-        await fetch('/', {
+        const response = await fetch('/', {
             method: 'POST',
             body: formData
         });
-        console.log(`Video ${videoIndex} data submitted for participant: ${participantInfo.PROLIFIC_PID}`);
+        
+        console.log(`视频 ${videoIndex} 数据提交响应:`, response.status); // 调试日志
+        if (response.ok) {
+            console.log(`✅ 视频 ${videoIndex} 数据成功提交到 Netlify Forms`);
+        } else {
+            console.log(`❌ 视频 ${videoIndex} 数据提交失败:`, response.status);
+        }
     } catch (error) {
-        console.log(`Data submission completed for video ${videoIndex}`);
+        console.error(`❌ 视频 ${videoIndex} 数据提交错误:`, error);
     }
 }
 
