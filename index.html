@@ -175,9 +175,9 @@ async function saveVideoData(videoIndex) {
 // 提交所有数据到Netlify Forms（实验结束时）
 async function submitAllDataToNetlify() {
     const dataToSend = {
-        prolific_pid: prolificInfo.PROLIFIC_PID,
-        study_id: prolificInfo.STUDY_ID,
-        session_id: prolificInfo.SESSION_ID,
+        prolific_pid: participantInfo.PROLIFIC_PID,
+        study_id: participantInfo.STUDY_ID,
+        session_id: participantInfo.SESSION_ID, 
         all_events: JSON.stringify(events),
         completion_time: new Date().toISOString(),
         status: 'completed'
@@ -220,7 +220,7 @@ document.getElementById('agreeBtn').addEventListener('click', function() {
 
 function initializeExperiment() {
     // 记录实验开始
-    console.log('Experiment started for participant:', prolificInfo.PROLIFIC_PID);
+    console.log('Experiment started for participant:', participantInfo.PROLIFIC_PID);
 
     /* ====== 序号选择器 + 按钮初始化 ====== */
     const startSelect = document.getElementById('startSelect');
