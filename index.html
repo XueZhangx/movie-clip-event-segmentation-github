@@ -217,6 +217,7 @@ async function submitAllDataToNetlify() {
 const TOTAL = 10;
 const FRAME_DUR = 1.0;
 const STORAGE_KEY = 'seeg_lastVideo';
+let events = []; // 移到全局作用域
 
 // 显示同意书
 document.getElementById('consent').style.display = 'flex';
@@ -264,7 +265,7 @@ function initializeExperiment() {
     }
 
     /* ====== 主要变量和函数 ====== */
-    let idx = startIdx, events = [], evtCnt = 0, fineTuning = false;
+    let idx = startIdx, evtCnt = 0, fineTuning = false;
     const v = document.getElementById('v');
     const prompt = document.getElementById('prompt');
     const counter = document.getElementById('counter');
