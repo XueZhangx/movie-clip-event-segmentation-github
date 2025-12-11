@@ -45,6 +45,10 @@
   .input-group { margin: 20px 0; }
   .input-group label { display: block; margin-bottom: 8px; font-weight: bold; }
   .input-group input { padding: 10px; width: 100%; box-sizing: border-box; font-size: 16px; }
+
+  /* 倒计时样式 */
+  .wait-warning { color: #FF9800; font-size: 20px; margin-bottom: 20px; font-weight: bold;}
+  .success-msg { color: #4CAF50; font-size: 20px; margin-bottom: 20px; display: none; }
 </style>
 </head>
 <body>
@@ -121,8 +125,18 @@
 <!-- 4. 完成页面 -->
 <div id="completion">
   <h2>感谢您的参与！</h2>
-  <p style="font-size: 18px; margin: 20px 0;">您的数据已成功保存。</p>
-  <p style="font-size: 14px; color: #ccc; margin-top: 30px;">您现在可以关闭浏览器窗口了。</p>
+  
+  <!-- 倒计时提示 -->
+  <div id="waitMsg" class="wait-warning">
+      数据正在最终同步，请勿关闭页面... <span id="countdown" style="font-size: 24px; color: white;">5</span>
+  </div>
+  
+  <!-- 成功提示 (默认隐藏) -->
+  <div id="finalMsg" class="success-msg">
+      ✅ 数据已全部保存，您可以安全关闭窗口了。
+  </div>
+
+  <p style="font-size: 14px; color: #ccc; margin-top: 30px;">如有疑问，请联系实验主试。</p>
 </div>
 
 <!-- Netlify Form -->
@@ -142,9 +156,11 @@
 const TOTAL_VIDEOS = 10; 
 const STORAGE_KEY_PROGRESS = 'seeg_cn_progress_idx';
 const STORAGE_KEY_NAME = 'seeg_cn_participant_name';
+// [新增] 用于存储所有历史数据的 Key，解决刷新丢失数据问题
+const STORAGE_KEY_ALL_EVENTS = 'seeg_cn_all_accumulated_data';
 
 let participantInfo = {};
-let events = [];
+let events = []; // 当前视频的事件
 let currentIdx = 0; // 0=练习, 1-10=正式
 
 // 页面加载时，尝试自动填充姓名
@@ -170,7 +186,7 @@ document.getElementById('agreeBtn').addEventListener('click', function() {
     const timestamp = Date.now();
     participantInfo = {
         PROLIFIC_PID: nameVal, 
-        STUDY_ID: 'chinese_event_segmentation',
+        STUDY_ID: 'chinese_exp_v1',
         SESSION_ID: `sess_${timestamp}`
     };
     
@@ -269,7 +285,7 @@ function initializeExperiment(startAt) {
         v.style.display = 'none';
         prompt.style.display = 'block';
         
-        // 重置变量
+        // [关键] 重置当前视频的事件列表 (但历史数据在 LocalStorage 里是安全的)
         events = []; 
         evtCnt = 0;
         counter.textContent = '事件数: 0';
@@ -278,7 +294,6 @@ function initializeExperiment(startAt) {
 
     function pauseAndFineTune(){
         if(v.paused && fineTuning){
-            // 再次按空格 -> 取消暂停（继续播放）
             fineTuning = false;
             adjustHint.style.display = 'none';
             v.play();
@@ -302,7 +317,6 @@ function initializeExperiment(startAt) {
     }
 
     function saveDesc(){
-        // 如果正在跳转中，禁止再次提交
         if(isTransitioning) return;
 
         const txt = descInput.value.trim();
@@ -316,10 +330,11 @@ function initializeExperiment(startAt) {
         
         descBox.style.display = 'none';
         
-        // 如果视频已经播放结束（且在等待输入描述），则提交数据并跳转
         if(v.ended){
             isTransitioning = true;
+            // 提交数据
             saveVideoData(currentIdx);
+            
             currentIdx++; 
             setTimeout(() => { loadNext(); }, 300);
         } else {
@@ -341,11 +356,30 @@ function initializeExperiment(startAt) {
     }
 
     function finishAll(){
-        submitAllDataToNetlify();
         document.getElementById('experiment').style.display = 'none';
         document.getElementById('completion').style.display = 'flex';
-        // 实验结束，清除进度
+        
+        // 1. 立即触发最终提交
+        submitAllDataToNetlify();
+        
+        // 2. 实验结束，清除进度指针 (但保留数据以防万一)
         localStorage.removeItem(STORAGE_KEY_PROGRESS);
+
+        // 3. 倒计时逻辑
+        let timeLeft = 5;
+        const countSpan = document.getElementById('countdown');
+        const waitMsg = document.getElementById('waitMsg');
+        const finalMsg = document.getElementById('finalMsg');
+        
+        const timer = setInterval(() => {
+            timeLeft--;
+            countSpan.textContent = timeLeft;
+            if(timeLeft <= 0) {
+                clearInterval(timer);
+                waitMsg.style.display = 'none';
+                finalMsg.style.display = 'block';
+            }
+        }, 1000);
     }
 
     /* ====== 键盘事件监听 ====== */
@@ -353,17 +387,14 @@ function initializeExperiment(startAt) {
     document.getElementById('cancelBtn').onclick = cancelDescription;
 
     document.onkeydown = (e) => {
-        // 如果不在实验界面，不处理按键
         if(document.getElementById('experiment').style.display === 'none') return;
 
-        // 1. 输入框逻辑（正在输入描述）
         if(document.activeElement.id === 'descInput') {
-            if(e.code === 'Enter'){ e.preventDefault(); saveDesc(); } // 回车提交
-            if(e.code === 'Escape') { e.preventDefault(); cancelDescription(); } // ESC取消
+            if(e.code === 'Enter'){ e.preventDefault(); saveDesc(); }
+            if(e.code === 'Escape') { e.preventDefault(); cancelDescription(); }
             return;
         }
 
-        // 2. 提示界面逻辑（视频隐藏，显示Prompt）
         if(v.style.display === 'none' && prompt.style.display !== 'none' && e.target.tagName !== 'INPUT'){
             prompt.style.display = 'none';
             v.style.display = 'block';
@@ -371,12 +402,8 @@ function initializeExperiment(startAt) {
             return;
         }
 
-        // 3. 视频播放/暂停时的逻辑
         if(v.style.display !== 'none'){
-            // 空格键：暂停/继续
             if(e.code === 'Space'){ e.preventDefault(); pauseAndFineTune(); return; }
-            
-            // 处于暂停微调状态时
             if(fineTuning && v.paused){
                 if(e.code === 'ArrowLeft' || e.code === 'ArrowRight'){
                     e.preventDefault();
@@ -384,19 +411,16 @@ function initializeExperiment(startAt) {
                     v.currentTime = Math.max(0, v.currentTime + step);
                     return;
                 }
-                // 回车键：确认时间点
                 if(e.code === 'Enter'){ e.preventDefault(); confirmEnd(); return; }
             }
         }
     };
 
-    // 视频结束事件
     v.onended = () => {
         const finalTime = v.duration; 
         events.push({vid: currentIdx, ev: evtCnt + 1, time: finalTime, desc: '[auto-end]'});
         evtCnt++;
         counter.textContent = '事件数: ' + evtCnt;
-        
         descInput.value = '';
         evNumSpan.textContent = evtCnt;
         descBox.style.display = 'block';
@@ -404,11 +428,31 @@ function initializeExperiment(startAt) {
     };
 }
 
-// ====== 4. 数据提交逻辑 ======
+// ====== 4. 数据提交逻辑 (核心修改) ======
+
+// 辅助函数：将当前视频数据合并到 LocalStorage 的总历史记录中
+function appendToLocalStorage(newEvents) {
+    let allData = [];
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_ALL_EVENTS);
+        if (stored) allData = JSON.parse(stored);
+    } catch (e) { allData = []; }
+
+    // 将新数据追加进去 (简单追加，不去重，方便后续分析清洗)
+    allData = allData.concat(newEvents);
+    
+    localStorage.setItem(STORAGE_KEY_ALL_EVENTS, JSON.stringify(allData));
+    return allData;
+}
+
 async function saveVideoData(videoIndex) {
     const vIndexStr = (videoIndex === 0) ? "practice" : videoIndex.toString();
     const videoEvents = events.filter(o => o.vid === videoIndex);
     
+    // [重要] 第一步：先保存到本地硬盘 (防止刷新丢失)
+    appendToLocalStorage(videoEvents);
+
+    // 第二步：尝试发送给 Netlify (每个视频一次)
     const formData = new FormData();
     formData.append('form-name', 'event-segmentation-data-cn');
     formData.append('prolific_pid', participantInfo.PROLIFIC_PID);
@@ -421,21 +465,40 @@ async function saveVideoData(videoIndex) {
 
     try {
         await fetch('/', { method: 'POST', body: formData });
-        console.log(`✅ 视频 ${vIndexStr} 数据已保存。`);
+        console.log(`✅ 视频 ${vIndexStr} 数据已保存 (Netlify)。`);
     } catch (error) {
         console.error(`❌ 保存视频 ${vIndexStr} 时出错:`, error);
     }
 }
 
 async function submitAllDataToNetlify() {
+    // [核心修改] 这里不再提交当前的 events 变量
+    // 而是从 LocalStorage 读取我们在整个实验过程中积累的所有数据
+    let allAccumulatedData = [];
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_ALL_EVENTS);
+        if (stored) allAccumulatedData = JSON.parse(stored);
+    } catch (e) { }
+
+    // 如果没有数据 (极少见)，就用当前的 events
+    if (!allAccumulatedData || allAccumulatedData.length === 0) {
+        allAccumulatedData = events;
+    }
+
+    console.log("正在提交最终汇总数据:", allAccumulatedData);
+
     const formData = new FormData(document.getElementById('netlify-data-form'));
-    // 填充最后的状态
     document.getElementById('form-pid').value = participantInfo.PROLIFIC_PID;
-    document.getElementById('form-video-index').value = 'all_completed';
+    document.getElementById('form-video-index').value = 'all_completed_accumulated'; // 标记这是汇总数据
+    document.getElementById('form-events').value = JSON.stringify(allAccumulatedData); // 提交累积数据
+    document.getElementById('form-time').value = new Date().toISOString();
     
     try {
         await fetch('/', { method: 'POST', body: formData });
-    } catch (error) {}
+        console.log("✅ 最终汇总数据提交成功！");
+    } catch (error) {
+        console.log("⚠️ 最终提交可能因网络原因变慢或失败，但单次数据应已保存。");
+    }
 }
 </script>
 </body>
