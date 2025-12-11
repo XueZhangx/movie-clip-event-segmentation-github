@@ -128,7 +128,7 @@
   </div>
 </div>
 
-<!-- Netlify Form (必须包含所有静态字段，否则Netlify会丢弃数据) -->
+<!-- Netlify Form -->
 <form id="netlify-data-form" style="display: none;" netlify netlify-honeypot="bot-field" name="event-segmentation-data-cn">
   <input type="hidden" name="form-name" value="event-segmentation-data-cn"> 
   <input type="hidden" name="prolific_pid">
@@ -143,9 +143,9 @@
 <script>
 // ====== 配置 ======
 const TOTAL_VIDEOS = 10; 
-const STORAGE_KEY_PROGRESS = 'seeg_cn_v5_progress';
-const STORAGE_KEY_NAME = 'seeg_cn_v5_name';
-const STORAGE_KEY_ALL_DATA = 'seeg_cn_v5_alldata'; // 硬盘总账本
+const STORAGE_KEY_PROGRESS = 'seeg_cn_v6_progress';
+const STORAGE_KEY_NAME = 'seeg_cn_v6_name';
+const STORAGE_KEY_ALL_DATA = 'seeg_cn_v6_alldata'; 
 
 let currentIdx = 0; 
 let currentEvents = []; 
@@ -265,7 +265,8 @@ function initializeExperiment(startAt) {
         descInput.focus();
     }
 
-    function saveDesc(){
+    // [核心修改] 改为 async 函数，以便使用 await
+    async function saveDesc(){
         if(isTransitioning) return;
         const txt = descInput.value.trim();
         if(txt === '') { alert('请输入描述'); descInput.focus(); return; }
@@ -278,11 +279,17 @@ function initializeExperiment(startAt) {
         if(v.ended){
             isTransitioning = true;
             
-            // === 核心：视频结束，保存并上传 ===
-            saveAndUploadCurrentVideo(currentIdx, currentEvents);
+            // 1. 显示上传提示
+            prompt.innerHTML = `<span style="color: #FF9800;">正在保存当前视频数据...</span><br>请稍候，不要关闭页面。`;
+            prompt.style.display = 'block';
+            v.style.display = 'none';
+
+            // 2. [核心] 等待上传完成
+            await saveAndUploadCurrentVideo(currentIdx, currentEvents);
             
+            // 3. 上传完成后才跳转
             currentIdx++; 
-            setTimeout(() => { loadNext(); }, 500); 
+            loadNext(); 
         } else {
             v.play();
         }
@@ -301,12 +308,12 @@ function initializeExperiment(startAt) {
         v.style.display = 'none';
     }
 
-    function finishAll(){
+    async function finishAll(){
         document.getElementById('experiment').style.display = 'none';
         document.getElementById('completion').style.display = 'flex';
         
-        // === 核心：最后上传所有数据 ===
-        uploadFinalSummary();
+        // 最后一次汇总上传
+        await uploadFinalSummary();
 
         localStorage.removeItem(STORAGE_KEY_PROGRESS);
 
@@ -333,6 +340,8 @@ function initializeExperiment(startAt) {
             return;
         }
         if(v.style.display === 'none' && prompt.style.display !== 'none' && e.target.tagName !== 'INPUT'){
+            // 如果正在上传中(transitioning)，禁止键盘取消提示框
+            if(isTransitioning) return;
             prompt.style.display = 'none'; v.style.display = 'block'; v.play(); return;
         }
         if(v.style.display !== 'none'){
@@ -357,9 +366,8 @@ function initializeExperiment(startAt) {
     };
 }
 
-// ====== 4. 数据上传核心 (V5.0 终极修正) ======
+// ====== 4. 数据上传 ======
 
-// 辅助：从硬盘读取“总账本”
 function getGlobalData() {
     try {
         const stored = localStorage.getItem(STORAGE_KEY_ALL_DATA);
@@ -367,22 +375,17 @@ function getGlobalData() {
     } catch (e) { return []; }
 }
 
-// 辅助：向硬盘追加数据
 function appendToDisk(newEvents) {
     let all = getGlobalData();
-    // 简单追加
     all = all.concat(newEvents);
     localStorage.setItem(STORAGE_KEY_ALL_DATA, JSON.stringify(all));
 }
 
-// (A) 单个视频做完：先存硬盘，再发 Netlify
 async function saveAndUploadCurrentVideo(idx, events) {
     const vStr = (idx === 0) ? "practice" : idx.toString();
     
-    // 1. 存硬盘 (防止刷新丢失)
     appendToDisk(events);
     
-    // 2. 发 Netlify (单次)
     const pid = getParticipantID();
     const formData = new FormData();
     formData.append('form-name', 'event-segmentation-data-cn');
@@ -402,9 +405,8 @@ async function saveAndUploadCurrentVideo(idx, events) {
     }
 }
 
-// (B) 全部做完：从硬盘读取所有数据，打包发 Netlify
 async function uploadFinalSummary() {
-    const allData = getGlobalData(); // 从硬盘读！
+    const allData = getGlobalData(); 
     const pid = getParticipantID();
 
     const formData = new FormData();
@@ -412,8 +414,6 @@ async function uploadFinalSummary() {
     formData.append('prolific_pid', pid);
     formData.append('study_id', 'chinese_exp_v1');
     formData.append('session_id', 'sess_' + pid);
-    
-    // 标记：这是最终汇总
     formData.append('video_index', 'ALL_SUMMARY_BACKUP'); 
     formData.append('events', JSON.stringify(allData));
     formData.append('completion_time', new Date().toISOString());
