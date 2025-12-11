@@ -63,10 +63,10 @@
     <div style="background:#333;padding:15px;border-radius:5px;margin:20px 0;">
       <h3 style="margin-top:0;">操作说明：</h3>
       <ul style="margin-bottom:0; line-height: 1.6;">
-        <li><strong>空格键 (SPACEBAR)</strong> - 标记事件边界（暂停视频）</li>
+        <li><strong>空格键 (SPACEBAR)</strong> - 暂停/标记边界（再次按空格键可取消暂停，继续播放）</li>
         <li><strong>← → 方向键</strong> - 微调时间点（每次 ±1 秒）</li>
-        <li><strong>回车键 (ENTER)</strong> - 确认时间点并开始输入描述</li>
-        <li><strong>ESC 键</strong> - 取消本次标记</li>
+        <li><strong>回车键 (ENTER)</strong> - 确认时间点；<strong>输入描述后，按回车提交</strong></li>
+        <li><strong>ESC 键</strong> - 取消本次标记 或 取消输入描述</li>
       </ul>
     </div>
 
@@ -101,8 +101,8 @@
     <video id="v" controls style="display:none;"></video>
   </div>
 
-  <div id="help">空格 = 暂停/标记&nbsp;&nbsp; ← → = 微调&nbsp;&nbsp; 回车 = 确认</div>
-  <div id="adjustHint">使用 ← → 键调整时间，按回车键确认</div>
+  <div id="help">空格=暂停/取消暂停&nbsp;&nbsp; 回车=确认/提交&nbsp;&nbsp; ESC=取消</div>
+  <div id="adjustHint">← → 调整时间 (空格=取消暂停) (回车=确认)</div>
 
   <div id="descBox">
     <label>事件 <span id="evNum"></span> 简述：<br>
@@ -113,7 +113,7 @@
       <button id="cancelBtn" style="margin-left: 10px; background: #666; color:white;">取消 (Cancel)</button>
     </div>
     <div style="font-size: 12px; color: #999; margin-top: 5px;">
-        ESC: 取消 / ENTER: 提交
+        按 回车键 提交  /  按 ESC 键 取消
     </div>
   </div>
 </div>
@@ -278,6 +278,7 @@ function initializeExperiment(startAt) {
 
     function pauseAndFineTune(){
         if(v.paused && fineTuning){
+            // 再次按空格 -> 取消暂停（继续播放）
             fineTuning = false;
             adjustHint.style.display = 'none';
             v.play();
@@ -355,14 +356,14 @@ function initializeExperiment(startAt) {
         // 如果不在实验界面，不处理按键
         if(document.getElementById('experiment').style.display === 'none') return;
 
-        // 输入框逻辑
+        // 1. 输入框逻辑（正在输入描述）
         if(document.activeElement.id === 'descInput') {
-            if(e.code === 'Enter'){ e.preventDefault(); saveDesc(); }
-            if(e.code === 'Escape') { e.preventDefault(); cancelDescription(); }
+            if(e.code === 'Enter'){ e.preventDefault(); saveDesc(); } // 回车提交
+            if(e.code === 'Escape') { e.preventDefault(); cancelDescription(); } // ESC取消
             return;
         }
 
-        // 提示界面逻辑
+        // 2. 提示界面逻辑（视频隐藏，显示Prompt）
         if(v.style.display === 'none' && prompt.style.display !== 'none' && e.target.tagName !== 'INPUT'){
             prompt.style.display = 'none';
             v.style.display = 'block';
@@ -370,9 +371,12 @@ function initializeExperiment(startAt) {
             return;
         }
 
-        // 视频播放逻辑
+        // 3. 视频播放/暂停时的逻辑
         if(v.style.display !== 'none'){
+            // 空格键：暂停/继续
             if(e.code === 'Space'){ e.preventDefault(); pauseAndFineTune(); return; }
+            
+            // 处于暂停微调状态时
             if(fineTuning && v.paused){
                 if(e.code === 'ArrowLeft' || e.code === 'ArrowRight'){
                     e.preventDefault();
@@ -380,6 +384,7 @@ function initializeExperiment(startAt) {
                     v.currentTime = Math.max(0, v.currentTime + step);
                     return;
                 }
+                // 回车键：确认时间点
                 if(e.code === 'Enter'){ e.preventDefault(); confirmEnd(); return; }
             }
         }
