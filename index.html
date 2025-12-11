@@ -128,24 +128,28 @@
   </div>
 </div>
 
-<!-- Netlify Form (HIDDEN) - 关键：保持你原始代码的 Form 结构 -->
+<!-- Netlify Form (必须包含所有静态字段，否则Netlify会丢弃数据) -->
 <form id="netlify-data-form" style="display: none;" netlify netlify-honeypot="bot-field" name="event-segmentation-data-cn">
   <input type="hidden" name="form-name" value="event-segmentation-data-cn"> 
-  <!-- 下面的字段会在 JS 里动态 append，这里留着占位也没关系 -->
+  <input type="hidden" name="prolific_pid">
+  <input type="hidden" name="study_id">
+  <input type="hidden" name="session_id">
+  <input type="hidden" name="video_index">
+  <input type="hidden" name="events">
+  <input type="hidden" name="completion_time">
   <input type="text" name="bot-field" style="display: none;">
 </form>
 
 <script>
 // ====== 配置 ======
 const TOTAL_VIDEOS = 10; 
-const STORAGE_KEY_PROGRESS = 'seeg_cn_final_progress';
-const STORAGE_KEY_NAME = 'seeg_cn_final_name';
-const STORAGE_KEY_ALL_DATA = 'seeg_cn_final_alldata'; // 硬盘总账本
+const STORAGE_KEY_PROGRESS = 'seeg_cn_v5_progress';
+const STORAGE_KEY_NAME = 'seeg_cn_v5_name';
+const STORAGE_KEY_ALL_DATA = 'seeg_cn_v5_alldata'; // 硬盘总账本
 
 let currentIdx = 0; 
-let currentEvents = []; // 当前视频的事件
+let currentEvents = []; 
 
-// 页面加载：恢复名字
 window.addEventListener('DOMContentLoaded', () => {
     const savedName = localStorage.getItem(STORAGE_KEY_NAME);
     if(savedName) {
@@ -153,7 +157,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ====== 辅助函数：获取ID (防刷新丢失) ======
 function getParticipantID() {
     let name = document.getElementById('participantName').value.trim();
     if(!name) name = localStorage.getItem(STORAGE_KEY_NAME) || "Unknown_User";
@@ -354,7 +357,7 @@ function initializeExperiment(startAt) {
     };
 }
 
-// ====== 4. 数据上传核心 (完全回归原始逻辑 + 硬盘备份) ======
+// ====== 4. 数据上传核心 (V5.0 终极修正) ======
 
 // 辅助：从硬盘读取“总账本”
 function getGlobalData() {
@@ -367,6 +370,7 @@ function getGlobalData() {
 // 辅助：向硬盘追加数据
 function appendToDisk(newEvents) {
     let all = getGlobalData();
+    // 简单追加
     all = all.concat(newEvents);
     localStorage.setItem(STORAGE_KEY_ALL_DATA, JSON.stringify(all));
 }
@@ -380,27 +384,27 @@ async function saveAndUploadCurrentVideo(idx, events) {
     
     // 2. 发 Netlify (单次)
     const pid = getParticipantID();
-    const formData = new FormData(); // 手动构建，不依赖 form 元素，避免污染
+    const formData = new FormData();
     formData.append('form-name', 'event-segmentation-data-cn');
     formData.append('prolific_pid', pid);
     formData.append('study_id', 'chinese_exp_v1');
     formData.append('session_id', 'sess_' + pid);
-    formData.append('video_index', vStr); // 标记：这是单个视频的数据
+    formData.append('video_index', vStr); 
     formData.append('events', JSON.stringify(events));
     formData.append('completion_time', new Date().toISOString());
-    formData.append('bot-field', ''); // honeypot
+    formData.append('bot-field', '');
 
     try {
         await fetch('/', { method: 'POST', body: formData });
-        console.log(`Uploaded video ${vStr}`);
+        console.log(`✅ Uploaded video ${vStr}`);
     } catch (e) {
-        console.error(`Upload failed for ${vStr}`);
+        console.error(`❌ Upload failed for ${vStr}`);
     }
 }
 
 // (B) 全部做完：从硬盘读取所有数据，打包发 Netlify
 async function uploadFinalSummary() {
-    const allData = getGlobalData(); // 从硬盘读！确保包含之前的所有视频
+    const allData = getGlobalData(); // 从硬盘读！
     const pid = getParticipantID();
 
     const formData = new FormData();
@@ -417,9 +421,9 @@ async function uploadFinalSummary() {
 
     try {
         await fetch('/', { method: 'POST', body: formData });
-        console.log("Final summary uploaded.");
+        console.log("✅ Final summary uploaded.");
     } catch (e) {
-        console.error("Final summary failed.");
+        console.error("❌ Final summary failed.");
     }
 }
 </script>
